@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, json, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, json, timestamp, decimal, varchar } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -171,3 +171,90 @@ export type NetworkTopology = {
   nodes: NetworkTopologyNode[];
   links: NetworkTopologyLink[];
 };
+
+// Router schema for WAN monitoring
+export const routers = pgTable("routers", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  ipAddress: text("ip_address").notNull(),
+  location: text("location"),
+  description: text("description"),
+  model: text("model"),
+  monitoringEnabled: boolean("monitoring_enabled").default(true),
+  scheduleConfig: json("schedule_config"), // Configuration for ping schedule
+  createdAt: timestamp("created_at").defaultNow(),
+  createdBy: integer("created_by").notNull(),
+});
+
+export const insertRouterSchema = createInsertSchema(routers).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Router ISP connections
+export const routerIspConnections = pgTable("router_isp_connections", {
+  id: serial("id").primaryKey(),
+  routerId: integer("router_id").notNull(),
+  name: text("name").notNull(), // ISP name
+  ipAddress: text("ip_address").notNull(),
+  bandwidth: text("bandwidth"), // e.g., "100Mbps", "1Gbps"
+  provider: text("provider"),
+  accountNumber: text("account_number"),
+  notes: text("notes"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertRouterIspConnectionSchema = createInsertSchema(routerIspConnections).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Router ping results
+export const routerPingResults = pgTable("router_ping_results", {
+  id: serial("id").primaryKey(),
+  routerId: integer("router_id").notNull(),
+  ipAddress: text("ip_address").notNull(),
+  timestamp: timestamp("timestamp").defaultNow(),
+  successful: boolean("successful").notNull(),
+  latency: decimal("latency"), // in milliseconds
+  packetLoss: decimal("packet_loss"), // percentage
+  jitter: decimal("jitter"), // in milliseconds
+  isp: text("isp"), // ISP name, null for main router IP
+});
+
+export const insertRouterPingResultSchema = createInsertSchema(routerPingResults).omit({
+  id: true,
+  timestamp: true,
+});
+
+// Router reports
+export const routerReports = pgTable("router_reports", {
+  id: serial("id").primaryKey(),
+  routerId: integer("router_id").notNull(),
+  title: text("title").notNull(),
+  timeRange: text("time_range").notNull(),
+  data: json("data").notNull(), // Report data in JSON format
+  createdAt: timestamp("created_at").defaultNow(),
+  createdBy: integer("created_by").notNull(),
+  emailSent: boolean("email_sent").default(false),
+  emailRecipients: text("email_recipients").array(),
+});
+
+export const insertRouterReportSchema = createInsertSchema(routerReports).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Router report types
+export type InsertRouter = z.infer<typeof insertRouterSchema>;
+export type Router = typeof routers.$inferSelect;
+
+export type InsertRouterIspConnection = z.infer<typeof insertRouterIspConnectionSchema>;
+export type RouterIspConnection = typeof routerIspConnections.$inferSelect;
+
+export type InsertRouterPingResult = z.infer<typeof insertRouterPingResultSchema>;
+export type RouterPingResult = typeof routerPingResults.$inferSelect;
+
+export type InsertRouterReport = z.infer<typeof insertRouterReportSchema>;
+export type RouterReport = typeof routerReports.$inferSelect;

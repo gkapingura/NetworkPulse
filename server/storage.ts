@@ -56,6 +56,31 @@ export interface IStorage {
   updateNetworkConnection(id: number, connection: Partial<InsertNetworkConnection>): Promise<NetworkConnection | undefined>;
   deleteNetworkConnection(id: number): Promise<boolean>;
   
+  // Router operations
+  getAllRouters(): Promise<Router[]>;
+  getRouter(id: number): Promise<Router | undefined>;
+  createRouter(router: InsertRouter): Promise<Router>;
+  updateRouter(id: number, router: Partial<InsertRouter>): Promise<Router | undefined>;
+  deleteRouter(id: number): Promise<boolean>;
+  
+  // Router ISP connections
+  getRouterIspConnections(routerId: number): Promise<RouterIspConnection[]>;
+  getRouterIspConnection(id: number): Promise<RouterIspConnection | undefined>;
+  createRouterIspConnection(connection: InsertRouterIspConnection): Promise<RouterIspConnection>;
+  updateRouterIspConnection(id: number, connection: Partial<InsertRouterIspConnection>): Promise<RouterIspConnection | undefined>;
+  deleteRouterIspConnection(id: number): Promise<boolean>;
+  
+  // Router ping results
+  getRouterPingResults(routerId: number, startDate?: Date, endDate?: Date): Promise<RouterPingResult[]>;
+  createRouterPingResult(pingResult: InsertRouterPingResult): Promise<RouterPingResult>;
+  
+  // Router reports
+  getRouterReports(routerId: number): Promise<RouterReport[]>;
+  getRouterReport(id: number): Promise<RouterReport | undefined>;
+  createRouterReport(report: InsertRouterReport): Promise<RouterReport>;
+  updateRouterReport(id: number, report: Partial<InsertRouterReport>): Promise<RouterReport | undefined>;
+  deleteRouterReport(id: number): Promise<boolean>;
+  
   // Composite operations
   getDevicesWithStatus(): Promise<DeviceWithStatus[]>;
   
@@ -71,6 +96,10 @@ export class MemStorage implements IStorage {
   private reports: Map<number, Report>;
   private networkPlans: Map<number, NetworkPlan>;
   private networkConnections: Map<number, NetworkConnection>;
+  private routers: Map<number, Router>;
+  private routerIspConnections: Map<number, RouterIspConnection>;
+  private routerPingResults: Map<number, RouterPingResult>;
+  private routerReports: Map<number, RouterReport>;
   
   sessionStore: session.SessionStore;
   
@@ -81,6 +110,10 @@ export class MemStorage implements IStorage {
   private reportIdCounter: number;
   private networkPlanIdCounter: number;
   private networkConnectionIdCounter: number;
+  private routerIdCounter: number;
+  private routerIspConnectionIdCounter: number;
+  private routerPingResultIdCounter: number;
+  private routerReportIdCounter: number;
   
   constructor() {
     this.users = new Map();
@@ -90,6 +123,10 @@ export class MemStorage implements IStorage {
     this.reports = new Map();
     this.networkPlans = new Map();
     this.networkConnections = new Map();
+    this.routers = new Map();
+    this.routerIspConnections = new Map();
+    this.routerPingResults = new Map();
+    this.routerReports = new Map();
     
     this.userIdCounter = 1;
     this.deviceIdCounter = 1;
@@ -98,6 +135,10 @@ export class MemStorage implements IStorage {
     this.reportIdCounter = 1;
     this.networkPlanIdCounter = 1;
     this.networkConnectionIdCounter = 1;
+    this.routerIdCounter = 1;
+    this.routerIspConnectionIdCounter = 1;
+    this.routerPingResultIdCounter = 1;
+    this.routerReportIdCounter = 1;
     
     this.sessionStore = new MemoryStore({
       checkPeriod: 86400000 // 24 hours
@@ -249,6 +290,147 @@ export class MemStorage implements IStorage {
     };
     this.reports.set(id, report);
     return report;
+  }
+  
+  // Router operations
+  async getAllRouters(): Promise<Router[]> {
+    return Array.from(this.routers.values());
+  }
+  
+  async getRouter(id: number): Promise<Router | undefined> {
+    return this.routers.get(id);
+  }
+  
+  async createRouter(insertRouter: InsertRouter): Promise<Router> {
+    const id = this.routerIdCounter++;
+    const router: Router = {
+      ...insertRouter,
+      id,
+      createdAt: new Date()
+    };
+    this.routers.set(id, router);
+    return router;
+  }
+  
+  async updateRouter(id: number, updateData: Partial<InsertRouter>): Promise<Router | undefined> {
+    const router = this.routers.get(id);
+    if (!router) return undefined;
+    
+    const updatedRouter: Router = {
+      ...router,
+      ...updateData,
+    };
+    
+    this.routers.set(id, updatedRouter);
+    return updatedRouter;
+  }
+  
+  async deleteRouter(id: number): Promise<boolean> {
+    return this.routers.delete(id);
+  }
+  
+  // Router ISP connections
+  async getRouterIspConnections(routerId: number): Promise<RouterIspConnection[]> {
+    return Array.from(this.routerIspConnections.values())
+      .filter(conn => conn.routerId === routerId);
+  }
+  
+  async getRouterIspConnection(id: number): Promise<RouterIspConnection | undefined> {
+    return this.routerIspConnections.get(id);
+  }
+  
+  async createRouterIspConnection(insertConn: InsertRouterIspConnection): Promise<RouterIspConnection> {
+    const id = this.routerIspConnectionIdCounter++;
+    const connection: RouterIspConnection = {
+      ...insertConn,
+      id,
+      createdAt: new Date()
+    };
+    this.routerIspConnections.set(id, connection);
+    return connection;
+  }
+  
+  async updateRouterIspConnection(id: number, updateData: Partial<InsertRouterIspConnection>): Promise<RouterIspConnection | undefined> {
+    const connection = this.routerIspConnections.get(id);
+    if (!connection) return undefined;
+    
+    const updatedConnection: RouterIspConnection = {
+      ...connection,
+      ...updateData,
+    };
+    
+    this.routerIspConnections.set(id, updatedConnection);
+    return updatedConnection;
+  }
+  
+  async deleteRouterIspConnection(id: number): Promise<boolean> {
+    return this.routerIspConnections.delete(id);
+  }
+  
+  // Router ping results
+  async getRouterPingResults(routerId: number, startDate?: Date, endDate?: Date): Promise<RouterPingResult[]> {
+    let results = Array.from(this.routerPingResults.values())
+      .filter(result => result.routerId === routerId);
+    
+    if (startDate) {
+      results = results.filter(result => result.timestamp >= startDate);
+    }
+    
+    if (endDate) {
+      results = results.filter(result => result.timestamp <= endDate);
+    }
+    
+    return results.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+  }
+  
+  async createRouterPingResult(insertPingResult: InsertRouterPingResult): Promise<RouterPingResult> {
+    const id = this.routerPingResultIdCounter++;
+    const pingResult: RouterPingResult = {
+      ...insertPingResult,
+      id,
+      timestamp: new Date()
+    };
+    this.routerPingResults.set(id, pingResult);
+    return pingResult;
+  }
+  
+  // Router reports
+  async getRouterReports(routerId: number): Promise<RouterReport[]> {
+    return Array.from(this.routerReports.values())
+      .filter(report => report.routerId === routerId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+  
+  async getRouterReport(id: number): Promise<RouterReport | undefined> {
+    return this.routerReports.get(id);
+  }
+  
+  async createRouterReport(insertReport: InsertRouterReport): Promise<RouterReport> {
+    const id = this.routerReportIdCounter++;
+    const report: RouterReport = {
+      ...insertReport,
+      id,
+      createdAt: new Date()
+    };
+    this.routerReports.set(id, report);
+    return report;
+  }
+  
+  async updateRouterReport(id: number, updateData: Partial<InsertRouterReport>): Promise<RouterReport | undefined> {
+    const report = this.routerReports.get(id);
+    if (!report) return undefined;
+    
+    const updatedReport: RouterReport = {
+      ...report,
+      ...updateData,
+    };
+    
+    this.routerReports.set(id, updatedReport);
+    return updatedReport;
+  }
+  
+  async deleteRouterReport(id: number): Promise<boolean> {
+    return this.routerReports.delete(id);
   }
   
   // Composite operations
