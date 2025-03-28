@@ -10,7 +10,9 @@ import {
   CheckCircle, 
   XCircle, 
   LogOut,
-  Network
+  Network,
+  Router,
+  Wifi
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -41,6 +43,11 @@ export function Sidebar({ className }: { className?: string }) {
       name: "Devices",
       path: "/devices",
       icon: <HardDrive className="h-5 w-5" />
+    },
+    {
+      name: "Routers",
+      path: "/routers",
+      icon: <Router className="h-5 w-5" />
     },
     {
       name: "Network Planning",
