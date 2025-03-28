@@ -1,4 +1,4 @@
-import * as schedule from 'node-schedule';
+import schedule from 'node-schedule';
 
 /**
  * Interface for a task scheduler
@@ -51,50 +51,44 @@ class NodeScheduler implements Scheduler {
    * Schedule a task to run at a specific interval
    */
   scheduleInterval(id: string, callback: () => void, interval: number): void {
-    // Clear any existing job with the same ID
+    // Clear any existing job with this ID
     this.clear(id);
     
     // Schedule the interval
-    const intervalId = setInterval(callback, interval);
-    this.intervals.set(id, intervalId);
-    
-    console.log(`Scheduled interval job: ${id}, every ${interval}ms`);
+    const timeoutId = setInterval(callback, interval);
+    this.intervals.set(id, timeoutId);
   }
   
   /**
    * Schedule a task to run at a specific time each day
    */
   scheduleDaily(id: string, time: string, callback: () => void): void {
-    // Clear any existing job with the same ID
+    // Clear any existing job with this ID
     this.clear(id);
     
-    // Parse time (HH:MM)
-    const [hour, minute] = time.split(':').map(Number);
+    // Parse the time (HH:MM)
+    const [hours, minutes] = time.split(':').map(t => parseInt(t, 10));
     
-    // Create a recurring rule for the specified time
+    // Create a rule for daily execution at the specified time
     const rule = new schedule.RecurrenceRule();
-    rule.hour = hour;
-    rule.minute = minute;
+    rule.hour = hours;
+    rule.minute = minutes;
     
     // Schedule the job
     const job = schedule.scheduleJob(rule, callback);
     this.jobs.set(id, job);
-    
-    console.log(`Scheduled daily job: ${id}, at ${time}`);
   }
   
   /**
    * Schedule a task using a cron expression
    */
   scheduleCron(id: string, cronExpression: string, callback: () => void): void {
-    // Clear any existing job with the same ID
+    // Clear any existing job with this ID
     this.clear(id);
     
-    // Schedule the job with the cron expression
+    // Schedule the job using the cron expression
     const job = schedule.scheduleJob(cronExpression, callback);
     this.jobs.set(id, job);
-    
-    console.log(`Scheduled cron job: ${id}, expression: ${cronExpression}`);
   }
   
   /**
@@ -105,15 +99,12 @@ class NodeScheduler implements Scheduler {
     if (this.intervals.has(id)) {
       clearInterval(this.intervals.get(id));
       this.intervals.delete(id);
-      console.log(`Cleared interval job: ${id}`);
     }
     
-    // Cancel scheduled job if it exists
+    // Cancel job if it exists
     if (this.jobs.has(id)) {
-      const job = this.jobs.get(id);
-      job?.cancel();
+      this.jobs.get(id)?.cancel();
       this.jobs.delete(id);
-      console.log(`Cleared scheduled job: ${id}`);
     }
   }
   
@@ -122,20 +113,16 @@ class NodeScheduler implements Scheduler {
    */
   clearAll(): void {
     // Clear all intervals
-    for (const [id, intervalId] of this.intervals) {
-      clearInterval(intervalId);
-      console.log(`Cleared interval job: ${id}`);
+    for (const [id, interval] of this.intervals) {
+      clearInterval(interval);
     }
     this.intervals.clear();
     
-    // Cancel all scheduled jobs
+    // Cancel all jobs
     for (const [id, job] of this.jobs) {
       job.cancel();
-      console.log(`Cleared scheduled job: ${id}`);
     }
     this.jobs.clear();
-    
-    console.log('All jobs cleared');
   }
 }
 

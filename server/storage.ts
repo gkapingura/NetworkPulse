@@ -1,4 +1,7 @@
-import { users, devices, pingResults, alerts, reports, networkPlans, networkConnections } from "@shared/schema";
+import { 
+  users, devices, pingResults, alerts, reports, networkPlans, 
+  networkConnections, routers, routerIspConnections, routerPingResults, routerReports 
+} from "@shared/schema";
 import type { 
   User, InsertUser, 
   Device, InsertDevice, 
@@ -7,7 +10,11 @@ import type {
   Report, InsertReport, 
   NetworkPlan, InsertNetworkPlan,
   NetworkConnection, InsertNetworkConnection,
-  DeviceWithStatus 
+  DeviceWithStatus,
+  Router, InsertRouter,
+  RouterIspConnection, InsertRouterIspConnection,
+  RouterPingResult, InsertRouterPingResult,
+  RouterReport, InsertRouterReport
 } from "@shared/schema";
 import session from "express-session";
 import createMemoryStore from "memorystore";

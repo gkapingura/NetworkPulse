@@ -14,6 +14,8 @@ import DeviceDetailsPage from "@/pages/device-details-page";
 import ReportsPage from "@/pages/reports-page";
 import NetworkPlanningPage from "@/pages/network-planning-page";
 import NetworkPlanningDetailPage from "@/pages/network-planning-detail-page";
+import RoutersPage from "@/pages/routers-page";
+import RouterDetailsPage from "@/pages/router-details-page";
 
 function Router() {
   return (
@@ -25,6 +27,8 @@ function Router() {
       <ProtectedRoute path="/network-planning" component={NetworkPlanningPage} />
       <ProtectedRoute path="/network-planning/:id" component={NetworkPlanningDetailPage} />
       <ProtectedRoute path="/network-planning/:id/edit" component={NetworkPlanningDetailPage} />
+      <ProtectedRoute path="/routers" component={RoutersPage} />
+      <ProtectedRoute path="/routers/:id" component={RouterDetailsPage} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>

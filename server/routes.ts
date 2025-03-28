@@ -11,6 +11,8 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 import { fromZodError } from "zod-validation-error";
+import fs from 'fs';
+import path from 'path';
 
 // Middleware to ensure user is authenticated
 const ensureAuth = (req: Request, res: Response, next: Function) => {
@@ -764,6 +766,127 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Start the router monitor
   routerMonitor.start();
+  
+  // Router import endpoint
+  app.post("/api/import-routers", ensureAuth, async (req, res) => {
+    try {
+      const ipDataPath = path.join(process.cwd(), 'attached_assets', 'ips.json');
+      
+      if (!fs.existsSync(ipDataPath)) {
+        return res.status(404).json({ message: "IP data file not found" });
+      }
+      
+      const ipData = JSON.parse(fs.readFileSync(ipDataPath, 'utf8'));
+      const importedRouters = [];
+      
+      // Function to parse an IP name to extract location and ISP
+      function parseIPName(name: string) {
+        // Extract location (first part of the name)
+        const location = name.split(' ')[0];
+        
+        // Extract ISP (Liquid or Telone)
+        const isp = name.includes('Liquid') ? 'Liquid' : 
+                   name.includes('Telone') ? 'Telone' : 'Other';
+        
+        // Extract type (Internet, Link, VPN)
+        let type = 'Other';
+        if (name.includes('Internet')) type = 'Internet';
+        else if (name.includes('Link')) type = 'Link';
+        else if (name.includes('VPN')) type = 'VPN';
+        
+        return { location, isp, type };
+      }
+      
+      // Function to group IPs by location
+      function groupByLocation(ips: any[]) {
+        const locations: Record<string, any[]> = {};
+        
+        ips.forEach(ip => {
+          const { location } = parseIPName(ip.name);
+          
+          if (!locations[location]) {
+            locations[location] = [];
+          }
+          
+          locations[location].push(ip);
+        });
+        
+        return locations;
+      }
+      
+      // Group IPs by location
+      const ipsByLocation = groupByLocation(ipData);
+      
+      // Create routers and ISP connections
+      for (const [location, ips] of Object.entries(ipsByLocation)) {
+        // Filter out known ISPs
+        const liquidIPs = ips.filter(ip => ip.name.includes('Liquid'));
+        const teloneIPs = ips.filter(ip => ip.name.includes('Telone'));
+        
+        if (liquidIPs.length > 0 || teloneIPs.length > 0) {
+          // Create the router
+          const router = await storage.createRouter({
+            name: `${location} Router`,
+            ipAddress: liquidIPs.length > 0 ? liquidIPs[0].ip : teloneIPs[0].ip, // Primary IP
+            location: location,
+            description: `Main router for ${location} location`,
+            model: 'Cisco ASR 1001-X',
+            monitoringEnabled: true,
+            scheduleConfig: {
+              type: 'interval',
+              interval: '1h' // Ping every hour
+            },
+            createdBy: req.user?.id || 1
+          });
+          
+          importedRouters.push(router);
+          
+          // Create ISP connections
+          // Add Liquid ISPs
+          for (const ip of liquidIPs) {
+            if (ip.ip !== router.ipAddress) { // Skip primary IP
+              const connectionType = ip.name.includes('Link') ? 'Link' :
+                                    ip.name.includes('VPN') ? 'VPN' : 'Internet';
+              
+              await storage.createRouterIspConnection({
+                routerId: router.id,
+                name: `Liquid ${connectionType}`,
+                ipAddress: ip.ip,
+                bandwidth: connectionType === 'Internet' ? '100Mbps' : '50Mbps',
+                provider: 'Liquid Telecom',
+                notes: `${connectionType} connection for ${location}`,
+                isActive: true
+              });
+            }
+          }
+          
+          // Add Telone ISPs
+          for (const ip of teloneIPs) {
+            const connectionType = ip.name.includes('Link') ? 'Link' :
+                                  ip.name.includes('VPN') ? 'VPN' : 'Internet';
+            
+            await storage.createRouterIspConnection({
+              routerId: router.id,
+              name: `Telone ${connectionType}`,
+              ipAddress: ip.ip,
+              bandwidth: connectionType === 'Internet' ? '50Mbps' : '30Mbps',
+              provider: 'TelOne',
+              notes: `${connectionType} connection for ${location}`,
+              isActive: true
+            });
+          }
+        }
+      }
+      
+      res.status(200).json({ 
+        message: "Routers imported successfully", 
+        count: importedRouters.length 
+      });
+    } catch (err) {
+      console.error("Error importing routers:", err);
+      res.status(500).json({ message: "Failed to import routers" });
+    }
+  });
   
   const httpServer = createServer(app);
   
