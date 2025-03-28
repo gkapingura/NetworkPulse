@@ -11,7 +11,27 @@ import {
   RouterPingResult
 } from "@shared/schema";
 import { useEffect, useState } from "react";
-import { Wifi as NetworkOff, Globe, Activity, Database, Wifi, AlertCircle, RefreshCw, Server, CheckCircle, XCircle } from "lucide-react";
+import { 
+  Wifi as NetworkOff, 
+  Globe, 
+  Activity, 
+  Database, 
+  Wifi, 
+  AlertCircle, 
+  RefreshCw, 
+  Server, 
+  CheckCircle, 
+  XCircle,
+  BarChart4,
+  Download,
+  CalendarDays,
+  Clock,
+  Pin,
+  Layers,
+  Network,
+  Cog,
+  Cpu
+} from "lucide-react";
 import { 
   Select,
   SelectContent,
@@ -119,6 +139,83 @@ export default function RoutersPage() {
   const handlePingRouter = (routerId: number) => {
     pingMutation.mutate(routerId);
     setSelectedRouterId(routerId);
+  };
+  
+  // Schedule frequency state
+  const [scheduleFrequency, setScheduleFrequency] = useState("1h");
+  const [cronSchedule, setCronSchedule] = useState("");
+  const [reportFrequency, setReportFrequency] = useState("none");
+  const [emailRecipients, setEmailRecipients] = useState("");
+  
+  // Handle scheduling for a router
+  const scheduleMutation = useMutation({
+    mutationFn: async (params: { routerId: number; frequency: string; cronSchedule?: string }) => {
+      const res = await apiRequest("POST", `/api/routers/${params.routerId}/schedule`, {
+        frequency: params.frequency,
+        cronSchedule: params.cronSchedule
+      });
+      return await res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Schedule updated",
+        description: "Router ping schedule has been updated successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/routers"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to update schedule",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+  
+  // Handle report configuration for a router
+  const reportMutation = useMutation({
+    mutationFn: async (params: { routerId: number; frequency: string; emailRecipients: string }) => {
+      const res = await apiRequest("POST", `/api/routers/${params.routerId}/report-config`, {
+        frequency: params.frequency,
+        emailRecipients: params.emailRecipients.split(",").map(email => email.trim())
+      });
+      return await res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Report settings updated",
+        description: "Automated report settings have been updated successfully.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to update report settings",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+  
+  // Save ping schedule
+  const handleSaveSchedule = () => {
+    if (selectedRouterId) {
+      scheduleMutation.mutate({
+        routerId: selectedRouterId,
+        frequency: scheduleFrequency,
+        cronSchedule: scheduleFrequency === 'custom' ? cronSchedule : undefined
+      });
+    }
+  };
+  
+  // Save report settings
+  const handleSaveReportSettings = () => {
+    if (selectedRouterId) {
+      reportMutation.mutate({
+        routerId: selectedRouterId,
+        frequency: reportFrequency,
+        emailRecipients: emailRecipients
+      });
+    }
   };
   
   function getQueryFn() {
@@ -383,7 +480,7 @@ export default function RoutersPage() {
                           <TableCell>{result.ipAddress}</TableCell>
                           <TableCell>
                             {result.successful ? (
-                              <Badge variant="success" className="bg-green-100 text-green-800">
+                              <Badge className="bg-green-100 text-green-800">
                                 <CheckCircle className="h-3 w-3 mr-1" />
                                 Success
                               </Badge>
@@ -395,13 +492,21 @@ export default function RoutersPage() {
                             )}
                           </TableCell>
                           <TableCell>
-                            {result.latency !== null ? `${result.latency.toFixed(2)} ms` : 'N/A'}
+                            {result.latency !== null ? 
+                              (typeof result.latency === 'number' 
+                                ? `${result.latency.toFixed(2)} ms` 
+                                : `${result.latency} ms`) 
+                              : 'N/A'}
                           </TableCell>
                           <TableCell>
-                            {result.packetLoss !== null ? `${result.packetLoss.toFixed(1)}%` : 'N/A'}
+                            {result.packetLoss !== null ? 
+                              (typeof result.packetLoss === 'number' 
+                                ? `${result.packetLoss.toFixed(1)}%` 
+                                : `${result.packetLoss}%`) 
+                              : 'N/A'}
                           </TableCell>
                           <TableCell>
-                            {new Date(result.timestamp).toLocaleString()}
+                            {result.timestamp ? new Date(result.timestamp).toLocaleString() : 'N/A'}
                           </TableCell>
                         </TableRow>
                       );
@@ -470,7 +575,120 @@ export default function RoutersPage() {
               </div>
             </div>
             
-            <DialogFooter>
+            <div className="mt-6 border-t pt-6">
+              <h3 className="text-lg font-medium mb-4">Ping Schedule</h3>
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+                <div className="border rounded-lg p-4">
+                  <h4 className="font-medium flex items-center mb-3">
+                    <CalendarDays className="h-4 w-4 mr-2" />
+                    Schedule Configuration
+                  </h4>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">Frequency</label>
+                      <select 
+                        className="w-full border rounded p-2"
+                        value={scheduleFrequency}
+                        onChange={(e) => setScheduleFrequency(e.target.value)}
+                      >
+                        <option value="15m">Every 15 minutes</option>
+                        <option value="30m">Every 30 minutes</option>
+                        <option value="1h">Every hour</option>
+                        <option value="6h">Every 6 hours</option>
+                        <option value="12h">Every 12 hours</option>
+                        <option value="24h">Once a day</option>
+                        <option value="custom">Custom schedule</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">Custom Cron Schedule (optional)</label>
+                      <input 
+                        type="text" 
+                        placeholder="e.g. 0 */4 * * *" 
+                        className="w-full border rounded p-2"
+                        value={cronSchedule}
+                        onChange={(e) => setCronSchedule(e.target.value)}
+                        disabled={scheduleFrequency !== 'custom'}
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">Format: minute hour day month weekday</p>
+                    </div>
+                    <div className="flex justify-end">
+                      <Button 
+                        size="sm"
+                        onClick={handleSaveSchedule}
+                        disabled={scheduleMutation.isPending}
+                      >
+                        {scheduleMutation.isPending ? (
+                          <>
+                            <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                            Saving...
+                          </>
+                        ) : (
+                          <>
+                            <Cog className="h-3 w-3 mr-1" />
+                            Save Schedule
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+                <div className="border rounded-lg p-4">
+                  <h4 className="font-medium flex items-center mb-3">
+                    <BarChart4 className="h-4 w-4 mr-2" />
+                    Automated Reports
+                  </h4>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">Report Frequency</label>
+                      <select 
+                        className="w-full border rounded p-2"
+                        value={reportFrequency}
+                        onChange={(e) => setReportFrequency(e.target.value)}
+                      >
+                        <option value="none">No automatic reports</option>
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly</option>
+                        <option value="monthly">Monthly</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium mb-1 block">Email Recipients</label>
+                      <input 
+                        type="text" 
+                        placeholder="email@example.com, another@example.com" 
+                        className="w-full border rounded p-2"
+                        value={emailRecipients}
+                        onChange={(e) => setEmailRecipients(e.target.value)}
+                        disabled={reportFrequency === 'none'}
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">Separate multiple email addresses with commas</p>
+                    </div>
+                    <div className="flex justify-end">
+                      <Button 
+                        size="sm"
+                        onClick={handleSaveReportSettings}
+                        disabled={reportMutation.isPending}
+                      >
+                        {reportMutation.isPending ? (
+                          <>
+                            <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                            Saving...
+                          </>
+                        ) : (
+                          <>
+                            <Download className="h-3 w-3 mr-1" />
+                            Save Report Settings
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter className="mt-6">
               <Link href={`/routers/${selectedRouterId}/reports`}>
                 <Button variant="outline">View Reports</Button>
               </Link>
@@ -549,7 +767,7 @@ function RouterCard({
                     <Wifi className="h-3 w-3 mr-1" />
                     <span>{conn.name}</span>
                   </div>
-                  <Badge variant="outline" size="sm" className="text-xs">
+                  <Badge variant="outline" className="text-xs">
                     {conn.provider || 'Unknown ISP'}
                   </Badge>
                 </div>
