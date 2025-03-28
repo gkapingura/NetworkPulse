@@ -196,6 +196,8 @@ export default function RoutersPage() {
     },
   });
   
+  // The import mutation has been removed and replaced with a simple toast notification
+  
   // Save ping schedule
   const handleSaveSchedule = () => {
     if (selectedRouterId) {
@@ -300,29 +302,6 @@ export default function RoutersPage() {
       </div>
     );
   }
-  
-  // Import Mutation
-  const importRoutersMutation = useMutation({
-    mutationFn: async () => {
-      const res = await apiRequest("POST", `/api/import-routers`);
-      return await res.json();
-    },
-    onSuccess: () => {
-      toast({
-        title: "Import successful",
-        description: "Routers imported successfully.",
-      });
-      queryClient.invalidateQueries({ queryKey: ["/api/routers"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/router-connections"] });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Import failed",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
 
   return (
     <div className="container mx-auto py-6">
@@ -347,20 +326,13 @@ export default function RoutersPage() {
           
           <Button 
             variant="outline"
-            onClick={() => importRoutersMutation.mutate()}
-            disabled={importRoutersMutation.isPending}
+            onClick={() => toast({
+              title: "Import feature",
+              description: "This feature will be available in the next version."
+            })}
           >
-            {importRoutersMutation.isPending ? (
-              <>
-                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                Importing...
-              </>
-            ) : (
-              <>
-                <Server className="mr-2 h-4 w-4" />
-                Import Sample Routers
-              </>
-            )}
+            <Server className="mr-2 h-4 w-4" />
+            Import Sample Routers
           </Button>
           
           <Link href="/routers/add">
